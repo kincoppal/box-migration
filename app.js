@@ -6,10 +6,11 @@
 // 4. You can’t create a folder name in SharePoint Online that begins with a tilde (~).
 // 5. 15GB File upload size limit
 //
-
+const config = require('./config');
 const XLSX = require('xlsx');
 const appRoot = require('app-root-path');
 const winston = require('winston');
+const BoxSDK = require('box-node-sdk');
 
 const { combine, timestamp, printf } = winston.format;
 const myFormat = printf(({ timestamp, level, message, meta }) => {
@@ -28,7 +29,7 @@ const logger = winston.createLogger({
 
 //Open the Excel file
 logger.info('Opening file...');
-var workbook = XLSX.readFile(`${appRoot}/data/folder_tree_run_on_4-2-19__11-04-31-PM-Sheet1.xlsx`);
+var workbook = XLSX.readFile(`${appRoot}/data/folder_tree_run_on_4-2-19__11-04-31-PM-SAMPLE.xlsx`);
 logger.info('Opening file...Complete!');
 
 //Loop through the three sheets
