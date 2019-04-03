@@ -25,22 +25,29 @@ client.users.get(client.CURRENT_USER_ID)
 //   })
 //   .catch(err => console.log('API error:', err.statusCode));
 
-client.files.get('433000352883')
+client.files.get('252151559586')
 	.then(file => {
 		// ...
     console.log('File name:', file.name);
 	})
-  .catch(err => console.log('API error:', err.statusCode));;
+  .catch(err => console.log('API error:', err.statusCode));
 
-client.files.update('433000352883', {name : 'History 2 - Stage 3.pptx'})
-	.then(updatedFile => {
+client.folders.get('42667180820')
+	.then(folder => {
 		// ...
-    console.log('File name has been updated')
-    client.files.get('433000352883')
-    	.then(file => {
-    		// ...
-        console.log('File name:', file.name);
-    	})
-      .catch(err => console.log('API error:', err.statusCode));;
+    console.log('Folder name:', folder.name);
 	})
-  .catch(err => console.log('API error:', err.statusCode));;
+  .catch(err => console.log('API error:', err));
+
+// client.files.update('433000352883', {name : 'History 2 - Stage 3.pptx'})
+// 	.then(updatedFile => {
+// 		// ...
+//     console.log('File name has been updated')
+//     client.files.get('433000352883')
+//     	.then(file => {
+//     		// ...
+//         console.log('File name:', file.name);
+//     	})
+//       .catch(err => console.log('API error:', err.statusCode));;
+// 	})
+//   .catch(err => console.log('API error:', err.statusCode));;
