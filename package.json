@@ -1,0 +1,28 @@
+{
+  "name": "box-migration",
+  "version": "1.0.0",
+  "description": "Scripts to assess and remediate content in Box before migrating to SharePoint Online",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kincoppal/box-migration.git"
+  },
+  "keywords": [
+    "box",
+    "sharepoint"
+  ],
+  "author": "James Davis",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/kincoppal/box-migration/issues"
+  },
+  "homepage": "https://github.com/kincoppal/box-migration#readme",
+  "dependencies": {
+    "app-root-path": "^2.2.1",
+    "winston": "^3.2.1",
+    "xlsx": "^0.14.2"
+  }
+}
