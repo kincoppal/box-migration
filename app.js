@@ -7,7 +7,8 @@
 // 5. 15GB File upload size limit
 //
 const config = require('./config');
-const XLSX = require('xlsx');
+const csv = require('csv-parser');
+const fs = require('fs');
 const appRoot = require('app-root-path');
 const winston = require('winston');
 const BoxSDK = require('box-node-sdk');
@@ -23,7 +24,7 @@ const logger = winston.createLogger({
       myFormat
     ),
     transports: [
-        //new winston.transports.Console(),
+        new winston.transports.Console({ level: 'error'}),
         new winston.transports.File({ filename: `${appRoot}/log/app.log` })
     ]
 });
@@ -38,97 +39,109 @@ var sdk = new BoxSDK({
 var client = sdk.getBasicClient(config.boxAuth.developerToken);
 
 //Open the Excel file
-logger.info('Opening file...');
-var workbook = XLSX.readFile(`${appRoot}/data/smallSample.xlsx`);
-logger.info('Opening file...Complete!');
+logger.info('Opening file: ' + `${appRoot}/data/${config.filename}`);
+fs.createReadStream(`${appRoot}/data/${config.filename}`)
+  .pipe(csv())
+  .on('data', (row) => {
+    //Loop through each row
 
+    //Check for invalid characters
+    if(row.ItemName.includes('?') ||
+      row.ItemName.includes('*') ||
+      row.ItemName.includes(':') ||
+      row.ItemName.includes('|') ||
+      row.ItemName.includes('\"') ||
+      row.ItemName.includes('<') ||
+      row.ItemName.includes('>') ||
+      row.ItemName.includes('/') ||
+      row.ItemName.includes('\\') ||
+      row.ItemName.includes('_vti_')
+      ){
+        logger.warn('Invalid character: ' + row.ItemID + ' ' + row.ItemType + ' ' + row.ItemName);
 
-var sheet = workbook.Sheets[workbook.SheetNames[0]];
-var range = XLSX.utils.decode_range(sheet['!ref']);
-//Loop through each row
-for(var rowNum = range.s.r; rowNum <= range.e.r; rowNum++) {
-  var ownerLogin = sheet[XLSX.utils.encode_cell({r: rowNum, c: 1})];
-  var path = sheet[XLSX.utils.encode_cell({r: rowNum, c: 2})];
-  var item = sheet[XLSX.utils.encode_cell({r: rowNum, c: 4})];
-  var id = sheet[XLSX.utils.encode_cell({r: rowNum, c: 5})];
-  var type = sheet[XLSX.utils.encode_cell({r: rowNum, c: 6})];
-  var size = sheet[XLSX.utils.encode_cell({r: rowNum, c: 7})];
+        //Replace with permitted character
+        var newName = row.ItemName.replace('?', ' ');
+        newName = newName.replace('*', ' ');
+        newName = newName.replace(':', '-');
+        newName = newName.replace('|', '-');
+        newName = newName.replace('\"', '\'');
+        newName = newName.replace('<', '');
+        newName = newName.replace('>', '');
+        newName = newName.replace('/', '');
+        newName = newName.replace('\\', '');
+        newName = newName.replace('_vti_', 'vti-removed-in-migration');
 
-  //Check for invalid characters
-  if(item.v.includes('?') ||
-    item.v.includes('*') ||
-    item.v.includes(':') ||
-    item.v.includes('|') ||
-    item.v.includes('\"') ||
-    item.v.includes('<') ||
-    item.v.includes('>') ||
-    item.v.includes('/') ||
-    item.v.includes('\\') ||
-    item.v.includes('_vti_')
-    ){
-      logger.warn('Invalid character: ' + id.v + ' ' + type.v + ' ' + item.v);
-
-      //Replace with permitted character
-      var newName = item.v.replace('?', ' ');
-      newName = newName.replace('*', ' ');
-      newName = newName.replace(':', '-');
-      newName = newName.replace('|', '-');
-      newName = newName.replace('\"', '\'');
-      newName = newName.replace('<', '');
-      newName = newName.replace('>', '');
-      newName = newName.replace('/', '');
-      newName = newName.replace('\\', '');
-      newName = newName.replace('_vti_', 'vti-removed-in-migration');
-
-      if(ownerLogin.v.includes('boxadmin@krb.nsw.edu.au')){
-        if(type.v.includes('File')){
-          updateBoxFile(id.v, newName);
-        } else if (type.v.includes('Folder')){
-          updateBoxFolder(id.v, newName);
+        if(row.OwnerLogin.includes('boxadmin@krb.nsw.edu.au')){
+          if(row.ItemType.includes('File')){
+            updateBoxFile(row.ItemID, newName);
+          } else if (row.ItemType.includes('Folder')){
+            updateBoxFolder(row.ItemID, newName);
+          } else {
+            logger.error('Unknown object type: ' + row.ItemID + ' ' + row.ItemName);
+          }
         } else {
-          logger.error('Unknown object type: ' + id.v);
+          logger.error('Object not owned by boxadmin and needs a new name: ' + row.ItemID + ' ' + row.OwnerLogin);
         }
+
+    }
+
+    //You can’t have folder names in SharePoint Online that begins with a tilde (~).
+    if(row.ItemName.startsWith('~') & row.ItemType.includes('Folder')){
+      logger.warn('Invalid folder starting with ~: ' + row.ItemID + ' ' + row.ItemName);
+      var newName = row.ItemName.replace('~', 'migrated-');
+      //replace tilde with 'migrated-...'
+      if(row.OwnerLogin.includes('boxadmin@krb.nsw.edu.au')){
+        updateBoxFolder(row.ItemID, newName);
       } else {
-        logger.error('Object not owned by boxadmin but needs a new name: ' + id.v + ' ' + ownerLogin.v);
+        logger.error('Object not owned by boxadmin and needs a new name: ' + row.ItemID + ' ' + row.OwnerLogin);
       }
+    }
 
-  }
-
-  // The entire path, including the file name, must contain fewer than 400 characters
-  if(path.v.length > 400){
-    logger.error('Path name is longer than 400 chars: ' + path.v + id.v);
-    //what do we do?
-  }
-  //You can’t have folder names in SharePoint Online that begins with a tilde (~).
-  if(item.v.startsWith('~') & type.v.includes('Folder')){
-    logger.warn('Invalid folder starting with ~: ' + id.v + ' ' + item.v);
-    //replace with tilde-removed-in-migration single quote
-  }
-  //15GB File upload size limit
-  if(size.v.includes('GB') & type.v.includes('File')){
-    var NUMERIC_REGEXP = /[-]{0,1}[\d]*[\.]{0,1}[\d]+/g;
-    var gigabytes = parseFloat(Number(size.v.match(NUMERIC_REGEXP)));
-    if(gigabytes > 15.0) {
-      logger.error('File larger than 15GB: ' + id.v + ' ' + ownerLogin.v + item.v + size.v);
+    // The entire path, including the file name, must contain fewer than 400 characters
+    if(row.Path.length > 400){
+      logger.error('Path name is longer than 400 chars: ' + row.ItemID + ' ' + row.Path );
       //what do we do?
     }
-  }
-}
+
+    //15GB File upload size limit
+    if(row.Size.includes('GB') & row.ItemType.includes('File')){
+      var NUMERIC_REGEXP = /[-]{0,1}[\d]*[\.]{0,1}[\d]+/g;
+      var gigabytes = parseFloat(Number(row.Size.match(NUMERIC_REGEXP)));
+      if(gigabytes > 15.0) {
+        logger.error('File larger than 15GB: ' + row.ItemID + ' ' + row.OwnerLogin + row.ItemName + row.Size);
+        //what do we do?
+      }
+    }
+  })
+  .on('end', () => {
+    logger.info('CSV file successfully processed');
+  });
+
 
 // Call Box SDK API
 function updateBoxFile(boxID, newFileName){
-    client.files.get(boxID)
-      .then(file => {
-        logger.info('Box file to rename: ' + boxID + ' ' + file.name);
-        logger.info('client.files.update: ' + boxID + ' ' + newFileName);
-      })
-      .catch(err => logger.error('Box file API GET error: ' + boxID + ' ' + err));;
+  client.files.update(boxID, {name : newFileName})
+	.then(updatedFile => {
+		logger.info('client.files.update: ' + boxID + ' ' + newFileName);
+	})
+  .catch(err => logger.error('Box file API POST error: ' + boxID + ' ' + err));
 }
+    // client.files.get(boxID)
+    //   .then(file => {
+    //     //logger.info('Box file to rename: ' + boxID + ' ' + file.name);
+    //     logger.info('client.files.update: ' + boxID + ' ' + newFileName);
+    //   })
+    //   .catch(err => logger.error('Box file API GET error: ' + boxID + ' ' + err));
 function updateBoxFolder(boxID, newFolderName){
-  client.folders.get(boxID)
-  	.then(folder => {
-      logger.info('Box folder to rename: ' +  folder.name);
-      logger.info('client.folders.update: ' + boxID + ' ' + newFolderName);
-  	})
-    .catch(err => logger.error('Box folder API GET error: ' + boxID + ' ' + err));
+  client.folders.update(boxID, {name : newFolderName})
+	.then(updatedFolder => {
+		logger.info('client.folders.update: ' + boxID + ' ' + newFolderName);
+	})
+  .catch(err => logger.error('Box folder API POST error: ' + boxID + ' ' + err));
+  // client.folders.get(boxID)
+  // 	.then(folder => {
+  //     //logger.info('Box folder to rename: ' +  folder.name);
+  //     logger.info('client.folders.update: ' + boxID + ' ' + newFolderName);
+  // 	})
+  //   .catch(err => logger.error('Box folder API GET error: ' + boxID + ' ' + err));
 }

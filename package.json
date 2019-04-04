@@ -23,6 +23,8 @@
   "dependencies": {
     "app-root-path": "^2.2.1",
     "box-node-sdk": "^1.28.0",
+    "csv-parser": "^2.2.0",
+    "fs": "0.0.1-security",
     "winston": "^3.2.1",
     "xlsx": "^0.14.2"
   }
