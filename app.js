@@ -45,8 +45,10 @@ fs.createReadStream(`${appRoot}/data/${config.filename}`)
   .on('data', (row) => {
     //Loop through each row
 
-    //Check for invalid characters
-    if(row.ItemName.includes('?') ||
+    //Ignore anything in CareyG's home folder
+    if(!row.Path.includes('All Files/HomeDir Staff/CareyG/')){
+      //Check for invalid characters
+      if(row.ItemName.includes('?') ||
       row.ItemName.includes('*') ||
       row.ItemName.includes(':') ||
       row.ItemName.includes('|') ||
@@ -72,18 +74,23 @@ fs.createReadStream(`${appRoot}/data/${config.filename}`)
         newName = newName.replace('_vti_', 'vti-removed-in-migration');
 
         if(row.OwnerLogin.includes('boxadmin@krb.nsw.edu.au')){
-          if(row.ItemType.includes('File')){
-            updateBoxFile(row.ItemID, newName);
-          } else if (row.ItemType.includes('Folder')){
-            updateBoxFolder(row.ItemID, newName);
+          if(!row.ItemName.includes('#NAME?')){
+            if(row.ItemType.includes('File')){
+              updateBoxFile(row.ItemID, newName);
+            } else if (row.ItemType.includes('Folder')){
+              updateBoxFolder(row.ItemID, newName);
+            } else {
+              logger.error('Unknown object type: ' + row.ItemID + ' ' + row.ItemName);
+            }
           } else {
-            logger.error('Unknown object type: ' + row.ItemID + ' ' + row.ItemName);
+            logger.warn('Ignoring #NAME? from xlsx to csv conversion: '+ row.ItemID);
           }
         } else {
           logger.error('Object not owned by boxadmin and needs a new name: ' + row.ItemID + ' ' + row.OwnerLogin);
         }
 
-    }
+      }
+    } 
 
     //You can’t have folder names in SharePoint Online that begins with a tilde (~).
     if(row.ItemName.startsWith('~') & row.ItemType.includes('Folder')){
@@ -125,13 +132,15 @@ function updateBoxFile(boxID, newFileName){
 		logger.info('client.files.update: ' + boxID + ' ' + newFileName);
 	})
   .catch(err => logger.error('Box file API POST error: ' + boxID + ' ' + err));
+
+  // client.files.get(boxID)
+  //     .then(file => {
+  //       //logger.info('Box file to rename: ' + boxID + ' ' + file.name);
+  //       logger.info('client.files.update: ' + boxID + ' ' + newFileName);
+  //     })
+  //     .catch(err => logger.error('Box file API GET error: ' + boxID + ' ' + err));
 }
-    // client.files.get(boxID)
-    //   .then(file => {
-    //     //logger.info('Box file to rename: ' + boxID + ' ' + file.name);
-    //     logger.info('client.files.update: ' + boxID + ' ' + newFileName);
-    //   })
-    //   .catch(err => logger.error('Box file API GET error: ' + boxID + ' ' + err));
+
 function updateBoxFolder(boxID, newFolderName){
   client.folders.update(boxID, {name : newFolderName})
 	.then(updatedFolder => {

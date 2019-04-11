@@ -25,25 +25,25 @@ client.users.get(client.CURRENT_USER_ID)
 //   })
 //   .catch(err => console.log('API error:', err.statusCode));
 
-client.files.get('252151559586')
-	.then(file => {
-		// ...
-    console.log('File name:', file.name);
-	})
-  .catch(err => console.log('API error:', err.statusCode));
+// client.files.get('252151559586')
+// 	.then(file => {
+// 		// ...
+//     console.log('File name:', file.name);
+// 	})
+//   .catch(err => console.log('API error:', err.statusCode));
 
-client.folders.get('47974880975')
+client.folders.get('42667215026')
 	.then(folder => {
 		// ...
     console.log('Folder name:', folder.name);
 	})
   .catch(err => console.log('API error:', err));
 
-client.folders.update('47974880975', {name : '2. What are forces'})
-  .then(updatedFolder => {
-    console.log('client.folders.update: 2. What are forces');
-  })
-  .catch(err => logger.error('Box folder API POST error: ' + err));
+// client.folders.update('42667215026', {name : '4. Does fast cooling make a difference'})
+//   .then(updatedFolder => {
+//     console.log('client.folders.update: 4. Does fast cooling make a difference');
+//   })
+//   .catch(err => logger.error('Box folder API POST error: ' + err));
 
 // client.files.update('433000352883', {name : 'History 2 - Stage 3.pptx'})
 // 	.then(updatedFile => {
